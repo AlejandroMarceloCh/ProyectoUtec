@@ -1,0 +1,39 @@
+# ── Secretos: nunca commitear ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ── Node / frontends ────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.expo/
+web-build/
+*.tsbuildinfo
+
+# ── SQLite dev fixtures ─────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── OS / editor ─────────────────────────────────────────────────────────────
+.DS_Store
+.vscode/
+.idea/
+*.swp
+grilla_convergencia_regresion_multivariable.png
+regresion_lineal_multivariable.py

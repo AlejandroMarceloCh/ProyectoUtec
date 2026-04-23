@@ -1,0 +1,52 @@
+:root {
+  --bg: #0D0D0D;
+  --surface: #141414;
+  --surface2: #1C1C1C;
+  --border: #2A2A2A;
+  --primary: #00C9D8;
+  --primary-light: #33D9E5;
+  --primary-dark: #009FAB;
+  --text: #F5F7FA;
+  --muted: #7A7A7A;
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --error: #EF4444;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+input, button {
+  font-family: inherit;
+  border: none;
+  outline: none;
+}
+
+/* Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0,201,216,0.15); }
+  50% { box-shadow: 0 0 40px rgba(0,201,216,0.3); }
+}

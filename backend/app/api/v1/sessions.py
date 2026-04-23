@@ -326,6 +326,52 @@ def get_my_history(
     }
 
 
+@router.get("/recent")
+def get_recent_checkins(limit: int = 5, db: Session = Depends(get_db)):
+    """Últimos check-ins — público, sin auth. Lo pollea la pantalla /display."""
+    limit = max(1, min(limit, 20))
+    gym = _get_active_gym(db)
+
+    rows = (
+        db.query(TrainingSession)
+        .filter(TrainingSession.gym_id == gym.id)
+        .order_by(TrainingSession.hora_entrada.desc())
+        .limit(limit)
+        .all()
+    )
+
+    user_ids = [r.user_id for r in rows]
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+    facs_by_id = {f.id: f for f in db.query(Faculty).all()}
+
+    ocupacion = db.query(TrainingSession).filter(
+        TrainingSession.gym_id == gym.id,
+        TrainingSession.hora_salida.is_(None),
+    ).count()
+
+    items = []
+    for s in rows:
+        u = users_by_id.get(s.user_id)
+        fac = facs_by_id.get(u.faculty_id) if u and u.faculty_id else None
+        items.append({
+            "session_id": str(s.id),
+            "full_name": u.full_name if u else "—",
+            "email": u.email if u else "",
+            "faculty_code": fac.code if fac else None,
+            "faculty_name": fac.name if fac else None,
+            "points": u.points if u else 0,
+            "hora_entrada": s.hora_entrada,
+            "hora_salida": s.hora_salida,
+            "esta_activa": s.hora_salida is None,
+        })
+
+    return {
+        "items": items,
+        "ocupacion_actual": ocupacion,
+        "capacidad": gym.capacity,
+    }
+
+
 @router.get("/occupancy", response_model=OccupancyResponse)
 def get_occupancy(db: Session = Depends(get_db)):
     """Ocupación actual del gym. Endpoint público (no requiere auth)."""

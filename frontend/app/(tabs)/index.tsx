@@ -1,33 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, Alert, Animated, StyleSheet, Dimensions } from "react-native";
-import QRCode from "react-native-qrcode-svg";
+import { useEffect, useRef } from "react";
+import { View, Text, ScrollView, Alert, Animated, Platform } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Logo } from "@/components/ui/Logo";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { GlowView } from "@/components/ui/GlowView";
-import { PulseRing } from "@/components/ui/PulseRing";
-import { colors } from "@/constants/theme";
+import { Button } from "@/components/ds/Button";
+import { Card } from "@/components/ds/Card";
+import { EmptyState } from "@/components/ds/EmptyState";
+import { AccessPass } from "@/components/domain/AccessPass";
+import { useQRToken } from "@/hooks/useQRToken";
+import { useUserMetrics } from "@/hooks/useUserMetrics";
 
-const QR_TTL = 30;
-const { width } = Dimensions.get("window");
-const QR_SIZE = Math.min(width * 0.55, 220);
-
-function CountdownBar({ seconds }: { seconds: number }) {
-  const pct = seconds / QR_TTL;
-  const color = seconds > 12 ? colors.primary : seconds > 6 ? colors.warning : colors.error;
-  return (
-    <View style={s.barTrack}>
-      <Animated.View style={[s.barFill, { width: `${pct * 100}%`, backgroundColor: color }]} />
-    </View>
-  );
-}
-
-/** Animated pulsing dot for active session */
 function ActiveDot() {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
@@ -50,9 +32,20 @@ function ActiveDot() {
   }, []);
 
   return (
-    <View style={s.dotWrap}>
-      <Animated.View style={[s.dotRing, { transform: [{ scale }], opacity }]} />
-      <View style={s.dot} />
+    <View style={{ width: 12, height: 12, alignItems: "center", justifyContent: "center" }}>
+      <Animated.View
+        style={{
+          width: 12,
+          height: 12,
+          borderRadius: 6,
+          borderWidth: 1.5,
+          borderColor: "#5EEAA0",
+          position: "absolute",
+          transform: [{ scale }],
+          opacity,
+        }}
+      />
+      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#5EEAA0", position: "absolute" }} />
     </View>
   );
 }
@@ -60,15 +53,8 @@ function ActiveDot() {
 export default function QRScreen() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [countdown, setCountdown] = useState(QR_TTL);
-
-  const { data: qrData, refetch: refreshQR } = useQuery({
-    queryKey: ["qr-token"],
-    queryFn: () => api.get("/qr/generate").then((r) => r.data),
-    enabled: !!user,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
+  const { token, countdown, isFetching, isError, refetch } = useQRToken();
+  const { metrics } = useUserMetrics();
 
   const { data: sessionData } = useQuery({
     queryKey: ["active-session"],
@@ -81,30 +67,23 @@ export default function QRScreen() {
     mutationFn: () => api.post("/sessions/checkout", { method: "manual" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["active-session"] });
-      queryClient.invalidateQueries({ queryKey: ["history"] });
+      queryClient.invalidateQueries({ queryKey: ["user-metrics"] });
       Alert.alert("¡Listo!", "Salida registrada correctamente.");
     },
     onError: () => Alert.alert("Error", "No se pudo registrar la salida."),
   });
 
   useEffect(() => {
-    if (!user) return;
-    setCountdown(QR_TTL);
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          refreshQR();
-          return QR_TTL;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [qrData, user]);
-
-  const borderColor =
-    countdown > 12 ? colors.primary : countdown > 6 ? colors.warning : colors.error;
-  const isExpiring = countdown <= 8;
+    if (Platform.OS !== "web" || typeof navigator === "undefined") return;
+    let lock: { release: () => Promise<void> } | null = null;
+    (async () => {
+      try {
+        const wl = (navigator as unknown as { wakeLock?: { request: (t: string) => Promise<{ release: () => Promise<void> }> } }).wakeLock;
+        if (wl) lock = await wl.request("screen");
+      } catch {}
+    })();
+    return () => { try { lock?.release(); } catch {} };
+  }, []);
 
   const session = sessionData?.sesion;
   const sessionMinutes = session
@@ -113,237 +92,98 @@ export default function QRScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={s.scroll}
+      className="flex-1 bg-ds-bg-base"
+      contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 40 }}
     >
-      {/* Header */}
-      <View style={s.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={s.greeting}>Bienvenido</Text>
-          <Text style={s.name}>{user?.full_name}</Text>
-        </View>
-        <Logo size={36} color={colors.primary} />
+      {/* Header — Identidad del alumno */}
+      <View className="mb-6">
+        <Text className="font-ds-text text-[13px] text-ds-fg-mute">Mi Acceso</Text>
+        <Text className="font-ds-display text-[24px] text-ds-fg-hi mt-0.5">{user?.full_name}</Text>
+        {user?.email && (
+          <Text className="font-ds-text text-[12px] text-ds-fg-dim mt-1">{user.email}</Text>
+        )}
       </View>
 
       {/* QR Card */}
-      <Card glow style={s.qrCard}>
-        <GlowView
-          color={borderColor}
-          radius={QR_SIZE * 0.7}
-          intensity={isExpiring ? 0.3 : 0.18}
-          breathe
-        >
-          <PulseRing
-            size={QR_SIZE + 32}
-            color={borderColor}
-            rings={isExpiring ? 3 : 2}
-            duration={isExpiring ? 1400 : 2400}
-          >
-            <View
-              style={[
-                s.qrWrap,
-                {
-                  borderColor,
-                  width: QR_SIZE + 32,
-                  height: QR_SIZE + 32,
-                  borderRadius: 20,
-                },
-              ]}
-            >
-              {qrData?.qr_token ? (
-                <QRCode
-                  value={qrData.qr_token}
-                  size={QR_SIZE}
-                  color={colors.text}
-                  backgroundColor={colors.surface}
-                />
-              ) : (
-                <Skeleton width={QR_SIZE} height={QR_SIZE} borderRadius={12} />
-              )}
-            </View>
-          </PulseRing>
-        </GlowView>
+      <AccessPass
+        token={token}
+        countdown={countdown}
+        isFetching={isFetching}
+        isError={isError}
+        onRetry={refetch}
+      />
 
-        <CountdownBar seconds={countdown} />
-        <Text style={s.countdownText}>
-          {countdown > 6
-            ? `Renueva en ${countdown}s`
-            : countdown > 0
-            ? `Expira en ${countdown}s`
-            : "Renovando..."}
-        </Text>
-      </Card>
+      {/* Stats Grid — Sesiones, Puntos, Ranking, Aforo */}
+      <View className="grid grid-cols-2 gap-3 mb-4">
+        {/* Sesiones Totales */}
+        <Card variant="surface" className="items-center py-4">
+          <Text className="font-ds-display text-[20px] text-ds-brand-cyan">
+            {metrics?.stats.total_sesiones ?? "—"}
+          </Text>
+          <Text className="font-ds-text text-[10px] text-ds-fg-mute mt-1">Sesiones</Text>
+        </Card>
+
+        {/* Puntos */}
+        <Card variant="brand" className="items-center py-4">
+          <Text className="font-ds-display text-[20px] text-ds-fg-hi">
+            {user?.points ?? 0}
+          </Text>
+          <Text className="font-ds-text text-[10px] text-ds-fg-mute mt-1">Puntos</Text>
+        </Card>
+
+        {/* Ranking */}
+        <Card variant="surface" className="items-center py-4">
+          <Text className="font-ds-display text-[20px] text-ds-brand-cyan">
+            #{metrics?.ranking.posicion ?? "—"}
+          </Text>
+          <Text className="font-ds-text text-[10px] text-ds-fg-mute mt-1">Ranking</Text>
+        </Card>
+
+        {/* Aforo */}
+        <Card variant="surface" className="items-center py-4">
+          <Text className="font-ds-display text-[20px] text-ds-fg-base">
+            {metrics?.occupancy.ocupacion_actual ?? "—"}/{metrics?.occupancy.capacidad ?? "—"}
+          </Text>
+          <Text className="font-ds-text text-[10px] text-ds-fg-mute mt-1">Disponible</Text>
+        </Card>
+      </View>
 
       {/* Active Session */}
       {sessionData?.tiene_sesion_activa ? (
-        <Card glow style={s.sessionCard}>
-          <View style={s.sessionHeader}>
-            <View style={s.sessionBadge}>
+        <Card variant="surface" className="mb-4">
+          <View className="flex-row items-center justify-between mb-3">
+            <View className="flex-row items-center gap-2">
               <ActiveDot />
-              <Text style={s.activeText}>SESIÓN ACTIVA</Text>
+              <Text className="font-ds-text-sb text-[12px] text-ds-success tracking-widest">
+                SESIÓN ACTIVA
+              </Text>
             </View>
-            <Text style={s.sessionTime}>
+            <Text className="font-ds-display text-[20px] text-ds-brand-cyan">
               {sessionMinutes !== null ? `${sessionMinutes} min` : "—"}
             </Text>
           </View>
-          <Text style={s.entryTime}>
-            Entrada: {session ? new Date(session.hora_entrada).toLocaleTimeString("es-PE") : "—"}
+          <Text className="font-ds-text text-[12px] text-ds-fg-mute mb-4">
+            Entrada:{" "}
+            {session ? new Date(session.hora_entrada).toLocaleTimeString("es-PE") : "—"}
           </Text>
           <Button
-            label="Registrar salida"
-            onPress={() => checkoutMutation.mutate()}
+            variant="ghost"
+            size="md"
+            fullWidth
             loading={checkoutMutation.isPending}
-          />
+            onPress={() => checkoutMutation.mutate()}
+          >
+            Registrar salida
+          </Button>
         </Card>
       ) : (
-        <Card style={s.sessionCard}>
+        <Card variant="surface" className="mb-4">
           <EmptyState
-            illustration="no-active"
             title="Sin sesión activa"
-            subtitle="Muestra tu QR en la entrada del gym"
+            description="Muestra tu QR en la entrada del gym"
           />
         </Card>
       )}
-
-      {/* Stats row */}
-      <View style={s.statsRow}>
-        <GlowView color={colors.primary} radius={48} intensity={0.15} breathe style={{ flex: 1 }}>
-          <Card style={s.statCard}>
-            <Text style={s.statValue}>{user?.points ?? 0}</Text>
-            <Text style={s.statLabel}>Puntos</Text>
-          </Card>
-        </GlowView>
-        <View style={{ width: 12 }} />
-        <Card style={[s.statCard, { flex: 1 }]}>
-          <Text style={[s.statValue, { color: colors.muted }]}>—</Text>
-          <Text style={s.statLabel}>Rank</Text>
-        </Card>
-      </View>
     </ScrollView>
   );
 }
-
-const s = StyleSheet.create({
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  greeting: {
-    fontFamily: "Inter-Regular",
-    fontSize: 13,
-    color: colors.muted,
-  },
-  name: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 22,
-    color: colors.text,
-    marginTop: 2,
-  },
-  qrCard: {
-    alignItems: "center",
-    paddingVertical: 28,
-    marginBottom: 16,
-  },
-  qrWrap: {
-    padding: 12,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-  },
-  barTrack: {
-    width: "80%",
-    height: 3,
-    backgroundColor: colors.surface2,
-    borderRadius: 999,
-    overflow: "hidden",
-    marginTop: 20,
-  },
-  barFill: {
-    height: "100%",
-    borderRadius: 999,
-  },
-  countdownText: {
-    fontFamily: "Inter-Medium",
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 8,
-  },
-  sessionCard: {
-    marginBottom: 16,
-  },
-  sessionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  sessionBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  dotWrap: {
-    width: 12,
-    height: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: colors.success,
-    position: "absolute",
-  },
-  dotRing: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.success,
-    position: "absolute",
-  },
-  activeText: {
-    fontFamily: "Inter-Bold",
-    fontSize: 12,
-    color: colors.success,
-    letterSpacing: 1,
-  },
-  sessionTime: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 20,
-    color: colors.primary,
-  },
-  entryTime: {
-    fontFamily: "Inter-Regular",
-    fontSize: 12,
-    color: colors.muted,
-    marginBottom: 14,
-  },
-  statsRow: {
-    flexDirection: "row",
-  },
-  statCard: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 16,
-  },
-  statValue: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 28,
-    color: colors.primary,
-  },
-  statLabel: {
-    fontFamily: "Inter-Regular",
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 2,
-  },
-});

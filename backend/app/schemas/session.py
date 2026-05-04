@@ -6,7 +6,7 @@ from app.models.training_session import ExitMethod
 
 
 class CheckinRequest(BaseModel):
-    qr_token: str
+    code: str
     # Coords del lector (recepción) — opcionales; si el gym tiene geofence
     # configurado se valida que el escaneo ocurra dentro del radio.
     latitude: Optional[float] = None
@@ -28,6 +28,7 @@ class UserProfile(BaseModel):
     faculty_name: Optional[str] = None
     faculty_code: Optional[str] = None
     points: int = 0
+    photo_url: Optional[str] = None
 
 
 class CheckinResponse(BaseModel):

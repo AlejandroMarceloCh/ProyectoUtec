@@ -11,9 +11,10 @@ const BAND_TOP = (height - BAND_HEIGHT) / 2;
 
 interface SplashAnimatedProps {
   onFinish: () => void;
+  fast?: boolean;
 }
 
-export function SplashAnimated({ onFinish }: SplashAnimatedProps) {
+export function SplashAnimated({ onFinish, fast }: SplashAnimatedProps) {
   const bandOpacity = useRef(new Animated.Value(0)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.75)).current;
@@ -24,60 +25,37 @@ export function SplashAnimated({ onFinish }: SplashAnimatedProps) {
   const fadeOut = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    if (fast) {
+      Animated.parallel([
+        Animated.timing(bandOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(logoOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(logoScale, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(glowOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(textOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(textTranslate, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => {
+        Animated.timing(fadeOut, { toValue: 0, duration: 250, delay: 150, useNativeDriver: true }).start(() => onFinish());
+      });
+      return;
+    }
+
     Animated.sequence([
-      Animated.timing(bandOpacity, {
-        toValue: 1,
-        duration: 900,
-        useNativeDriver: true,
-      }),
-
+      Animated.timing(bandOpacity, { toValue: 1, duration: 900, useNativeDriver: true }),
       Animated.delay(500),
-
       Animated.parallel([
-        Animated.timing(overlayOpacity, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoScale, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(logoOpacity, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowOpacity, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(logoScale, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(logoOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(glowOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
       ]),
-
       Animated.parallel([
-        Animated.timing(textOpacity, {
-          toValue: 1,
-          duration: 450,
-          useNativeDriver: true,
-        }),
-        Animated.timing(textTranslate, {
-          toValue: 0,
-          duration: 450,
-          useNativeDriver: true,
-        }),
+        Animated.timing(textOpacity, { toValue: 1, duration: 450, useNativeDriver: true }),
+        Animated.timing(textTranslate, { toValue: 0, duration: 450, useNativeDriver: true }),
       ]),
-
       Animated.delay(900),
-
-      Animated.timing(fadeOut, {
-        toValue: 0,
-        duration: 450,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeOut, { toValue: 0, duration: 450, useNativeDriver: true }),
     ]).start(() => onFinish());
-  }, []);
+  }, [fast]);
 
   return (
     <Animated.View style={[styles.root, { opacity: fadeOut }]}>

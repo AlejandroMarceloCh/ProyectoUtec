@@ -1,0 +1,9 @@
+{
+  "name": "utec-gym-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "reception",
+    "scanner"
+  ]
+}

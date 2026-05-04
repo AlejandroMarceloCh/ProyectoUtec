@@ -1,12 +1,9 @@
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Platform } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/auth";
 import { api } from "@/lib/api";
-import { Card } from "@/components/ui/Card";
-import { GlowView } from "@/components/ui/GlowView";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { colors } from "@/constants/theme";
+import { Card } from "@/components/ds/Card";
+import { EmptyState } from "@/components/ds/EmptyState";
 
 type FacultyItem = {
   rank: number;
@@ -17,78 +14,63 @@ type FacultyItem = {
   logo_url: string | null;
 };
 
-const MEDAL_COLORS: Record<number, string> = {
-  1: "#FFD700",
-  2: "#C0C0C0",
-  3: "#CD7F32",
+const MEDAL: Record<number, { color: string; bg: string; border: string }> = {
+  1: { color: "#FFD700", bg: "#1A1500", border: "#FFD70040" },
+  2: { color: "#C0C0C0", bg: "#151515", border: "#C0C0C040" },
+  3: { color: "#CD7F32", bg: "#130F00", border: "#CD7F3240" },
 };
 
-function FacultyRow({ item, isMyFaculty }: { item: FacultyItem; isMyFaculty: boolean }) {
-  const isTop3 = item.rank <= 3;
-  const medalColor = MEDAL_COLORS[item.rank];
-
-  const rankCircle = (
-    <View style={[s.rankCircle, isTop3 && { borderColor: medalColor }]}>
-      <Text style={[s.rankNumber, isTop3 && { color: medalColor }]}>{item.rank}</Text>
-    </View>
-  );
-
+function SkeletonRow() {
   return (
-    <View
-      style={[
-        s.facultyRow,
-        {
-          borderColor: isMyFaculty ? colors.primary : isTop3 ? medalColor + "40" : colors.border,
-          backgroundColor: isMyFaculty
-            ? "#0D1F21"
-            : isTop3
-            ? "#111111"
-            : colors.surface,
-        },
-      ]}
-    >
-      {isTop3 ? (
-        <GlowView
-          color={medalColor}
-          radius={24}
-          intensity={0.35}
-          breathe={isTop3}
-        >
-          {rankCircle}
-        </GlowView>
-      ) : (
-        rankCircle
-      )}
-
-      <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={[s.facultyName, isMyFaculty && { color: colors.primary }]}>
-          {item.name}
-        </Text>
-        <Text style={s.facultyCode}>{item.code}</Text>
+    <View className="flex-row items-center px-4 py-3.5 mb-1.5 rounded-ds-lg bg-ds-bg-surface border border-ds-line">
+      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#23262E" }} />
+      <View className="flex-1 ml-3 gap-1.5">
+        <View style={{ height: 14, width: "60%", backgroundColor: "#23262E", borderRadius: 4 }} />
+        <View style={{ height: 10, width: "25%", backgroundColor: "#23262E", borderRadius: 4 }} />
       </View>
-
-      <Text style={[s.facultyPoints, isTop3 && { color: medalColor }, isMyFaculty && { color: colors.primary }]}>
-        {item.total_points.toLocaleString()}
-        {"\n"}
-        <Text style={s.ptsLabel}>pts</Text>
-      </Text>
+      <View style={{ height: 14, width: 52, backgroundColor: "#23262E", borderRadius: 4 }} />
     </View>
   );
 }
 
-function LoadingSkeleton() {
+function FacultyRow({ item, isMyFaculty }: { item: FacultyItem; isMyFaculty: boolean }) {
+  const medal = MEDAL[item.rank];
+  const rankColor = medal?.color ?? "#9AA0AB";
+  const borderColor = isMyFaculty ? "#22D3EE" : medal?.border ?? "#23262E";
+  const bgColor = isMyFaculty ? "#061519" : medal?.bg ?? "#101115";
+
   return (
-    <View style={{ gap: 8 }}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <View key={i} style={[s.facultyRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-          <Skeleton width={36} height={36} borderRadius={18} />
-          <View style={{ flex: 1, marginLeft: 12, gap: 6 }}>
-            <Skeleton width="70%" height={14} />
-            <Skeleton width="30%" height={10} />
-          </View>
-          <Skeleton width={60} height={14} />
-        </View>
-      ))}
+    <View
+      style={{ backgroundColor: bgColor, borderColor }}
+      className="flex-row items-center px-4 py-3.5 mb-1.5 rounded-ds-lg border"
+    >
+      <View
+        style={{ borderColor: rankColor }}
+        className="w-9 h-9 rounded-full border items-center justify-center"
+      >
+        <Text style={{ color: rankColor }} className="font-ds-display text-[14px]">
+          {item.rank}
+        </Text>
+      </View>
+
+      <View className="flex-1 ml-3">
+        <Text
+          style={{ color: isMyFaculty ? "#22D3EE" : "#F4F5F7" }}
+          className="font-ds-text-sb text-[14px]"
+        >
+          {item.name}
+        </Text>
+        <Text className="font-ds-text text-[11px] text-ds-fg-mute mt-0.5">{item.code}</Text>
+      </View>
+
+      <Text
+        style={{ color: isMyFaculty ? "#22D3EE" : rankColor }}
+        className="font-ds-display text-[16px] text-right"
+      >
+        {item.total_points.toLocaleString()}
+        {"\n"}
+        <Text className="font-ds-text text-[10px] text-ds-fg-mute">pts</Text>
+      </Text>
     </View>
   );
 }
@@ -108,33 +90,49 @@ export default function RankingScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={s.scroll}
+      className="flex-1 bg-ds-bg-base"
+      contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 40 }}
     >
-      <Text style={s.pageTitle}>Ranking</Text>
-      <Text style={s.pageSubtitle}>Puntos acumulados por facultad</Text>
+      <Text className="font-ds-display text-[28px] text-ds-fg-hi tracking-[1px] mb-1">Ranking</Text>
+      <Text className="font-ds-text text-[13px] text-ds-fg-mute mb-6">
+        Puntos acumulados por facultad
+      </Text>
 
       {myFaculty && (
-        <GlowView color={colors.primary} radius={120} intensity={0.15} breathe style={s.myGlow}>
-          <Card glow style={s.myCard}>
-            <Text style={s.myLabel}>Tu facultad</Text>
-            <View style={s.myRow}>
-              <Text style={s.myName}>{myFaculty.name}</Text>
-              <Text style={s.myRank}>#{myFaculty.rank}</Text>
-            </View>
-            <View style={s.myRow}>
-              <Text style={s.myPoints}>{myFaculty.total_points.toLocaleString()} pts totales</Text>
-              <Text style={s.myContrib}>Tu aporte: {user?.points ?? 0} pts</Text>
-            </View>
-          </Card>
-        </GlowView>
+        <Card
+          variant="brand"
+          className="mb-5"
+          style={
+            Platform.OS === "ios"
+              ? { shadowColor: "#22D3EE", shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 0 } }
+              : undefined
+          }
+        >
+          <Text className="font-ds-text text-[11px] text-ds-fg-mute mb-1">Tu facultad</Text>
+          <View className="flex-row items-center justify-between mt-1">
+            <Text className="font-ds-text-sb text-[16px] text-ds-brand-cyan flex-1 mr-2">
+              {myFaculty.name}
+            </Text>
+            <Text className="font-ds-display text-[20px] text-ds-brand-cyan">
+              #{myFaculty.rank}
+            </Text>
+          </View>
+          <View className="flex-row items-center justify-between mt-1">
+            <Text className="font-ds-text text-[12px] text-ds-fg-mute">
+              {myFaculty.total_points.toLocaleString()} pts totales
+            </Text>
+            <Text className="font-ds-text-m text-[12px] text-ds-fg-base">
+              Tu aporte: {user?.points ?? 0} pts
+            </Text>
+          </View>
+        </Card>
       )}
 
-      {isLoading && <LoadingSkeleton />}
+      {isLoading && Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)}
 
       {!isLoading && ranking.length === 0 && (
-        <Card>
-          <EmptyState illustration="no-ranking" title="Sin datos de facultades aún" />
+        <Card variant="surface">
+          <EmptyState title="Sin datos de facultades aún" />
         </Card>
       )}
 
@@ -148,110 +146,3 @@ export default function RankingScreen() {
     </ScrollView>
   );
 }
-
-const s = StyleSheet.create({
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
-  },
-  pageTitle: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 28,
-    color: colors.text,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontFamily: "Inter-Regular",
-    fontSize: 13,
-    color: colors.muted,
-    marginBottom: 24,
-  },
-  myGlow: {
-    width: "100%",
-    marginBottom: 20,
-  },
-  myCard: {
-    width: "100%",
-  },
-  myLabel: {
-    fontFamily: "Inter-Regular",
-    fontSize: 11,
-    color: colors.muted,
-    marginBottom: 4,
-  },
-  myRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
-  },
-  myName: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 16,
-    color: colors.primary,
-    flex: 1,
-    marginRight: 8,
-  },
-  myRank: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 20,
-    color: colors.primary,
-  },
-  myPoints: {
-    fontFamily: "Inter-Regular",
-    fontSize: 12,
-    color: colors.muted,
-  },
-  myContrib: {
-    fontFamily: "Inter-Medium",
-    fontSize: 12,
-    color: colors.text,
-  },
-  facultyRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  rankCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  rankNumber: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 14,
-    color: colors.muted,
-  },
-  facultyName: {
-    fontFamily: "Inter-SemiBold",
-    fontSize: 14,
-    color: colors.text,
-  },
-  facultyCode: {
-    fontFamily: "Inter-Regular",
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 1,
-  },
-  facultyPoints: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 16,
-    color: colors.muted,
-    textAlign: "right",
-  },
-  ptsLabel: {
-    fontFamily: "Inter-Regular",
-    fontSize: 10,
-    color: colors.muted,
-  },
-});

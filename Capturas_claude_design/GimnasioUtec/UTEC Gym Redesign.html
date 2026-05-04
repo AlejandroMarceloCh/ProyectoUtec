@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>UTEC GYM · Rediseño</title>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  /* Override DC bg para que matchee el sistema */
+  html, body { background: #06070A; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="tokens.js"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="browser-window.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel" src="components.jsx"></script>
+<script type="text/babel" src="screens-auth.jsx"></script>
+<script type="text/babel" src="screens-home.jsx"></script>
+<script type="text/babel" src="screens-routine.jsx"></script>
+<script type="text/babel" src="screens-history.jsx"></script>
+<script type="text/babel" src="screens-rank-profile.jsx"></script>
+<script type="text/babel" src="screens-web.jsx"></script>
+<script type="text/babel" src="screens-before.jsx"></script>
+<script type="text/babel" src="screens-ds.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+const BrowserWindow = window.ChromeWindow || window.BrowserWindow || (({children}) => <div style={{width:'100%',height:'100%'}}>{children}</div>);
+const { useState, useEffect } = React;
+
+const Phone = ({ children, title, dark = true }) => (
+  <IOSDevice width={390} height={844} dark={dark} title={title}>
+    {children}
+  </IOSDevice>
+);
+
+const App = () => {
+  const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
+    "showBefore": true,
+    "muscleStyle": "anatomy",
+    "intensity": "calibrated",
+    "density": "mixed"
+  }/*EDITMODE-END*/);
+  const { showBefore } = tweaks;
+  React.useEffect(() => { applyIntensity(tweaks.intensity); }, [tweaks.intensity]);
+
+  return (
+    <>
+      <DesignCanvas
+        title="UTEC GYM · Rediseño completo"
+        subtitle="Design system unificado para los 3 clientes · Mobile (RN+NativeWind), Web (React+Tailwind)"
+      >
+        <DCSection id="ds" title="Design System">
+          <DCArtboard id="ds-overview" label="Overview · tokens, type, color, componentes" width={1100} height={2000}>
+            <DSOverview/>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="auth" title="Auth (móvil)">
+          {showBefore && (
+            <DCArtboard id="login-before" label="Login · ANTES" width={390} height={844}>
+              <Phone><BeforeLogin/></Phone>
+            </DCArtboard>
+          )}
+          <DCArtboard id="login-after" label="Login · DESPUÉS" width={390} height={844}>
+            <Phone><LoginScreen/></Phone>
+          </DCArtboard>
+          <DCArtboard id="signin-after" label="Sign In · DESPUÉS" width={390} height={844}>
+            <Phone><SignInScreen/></Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="home" title="Pantalla principal (móvil)">
+          {showBefore && (
+            <DCArtboard id="qr-before" label="Mi QR · ANTES" width={390} height={844}>
+              <Phone><BeforeQR/></Phone>
+            </DCArtboard>
+          )}
+          <DCArtboard id="qr-after" label="Mi QR · DESPUÉS" width={390} height={844}>
+            <Phone><MyQRScreen/></Phone>
+          </DCArtboard>
+          <DCArtboard id="live" label="En Vivo · DESPUÉS" width={390} height={844}>
+            <Phone><LiveScreen/></Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="routine" title="Rutina + Mapa de calor">
+          <DCArtboard id="routine" label="Rutina + Heatmap · DESPUÉS" width={390} height={844}>
+            <Phone><RoutineScreen/></Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="history" title="Historial + Detalle de sesión">
+          <DCArtboard id="hist" label="Historial · DESPUÉS" width={390} height={844}>
+            <Phone><HistoryScreen/></Phone>
+          </DCArtboard>
+          <DCArtboard id="hist-detail" label="Detalle de sesión · NUEVA" width={390} height={844}>
+            <Phone><SessionDetailScreen/></Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="ranking" title="Ranking + Perfil">
+          <DCArtboard id="ranking" label="Ranking · DESPUÉS" width={390} height={844}>
+            <Phone><RankingScreen/></Phone>
+          </DCArtboard>
+          <DCArtboard id="profile" label="Perfil · DESPUÉS" width={390} height={844}>
+            <Phone><ProfileScreen/></Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="web" title="Web · Recepción + Scanner">
+          {showBefore && (
+            <DCArtboard id="rec-before" label="Recepción · ANTES" width={1280} height={720}>
+              <BrowserWindow url="recepcion.utec.gym" theme="dark">
+                <BeforeReception/>
+              </BrowserWindow>
+            </DCArtboard>
+          )}
+          <DCArtboard id="rec-after" label="Recepción · DESPUÉS" width={1440} height={900}>
+            <BrowserWindow url="recepcion.utec.gym" theme="dark">
+              <ReceptionPanel/>
+            </BrowserWindow>
+          </DCArtboard>
+          <DCArtboard id="student" label="Alumno detail · NUEVA" width={1440} height={900}>
+            <BrowserWindow url="recepcion.utec.gym/alumno/a20200053" theme="dark">
+              <StudentDetail/>
+            </BrowserWindow>
+          </DCArtboard>
+          <DCArtboard id="scanner" label="Scanner · DESPUÉS" width={1280} height={800}>
+            <BrowserWindow url="scanner.utec.gym" theme="dark">
+              <ScannerScreen/>
+            </BrowserWindow>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Comparación">
+          <TweakToggle
+            label="Mostrar 'Antes' lado a lado"
+            value={tweaks.showBefore}
+            onChange={(v) => setTweak('showBefore', v)}
+          />
+        </TweakSection>
+        <TweakSection title="Variaciones">
+          <TweakRadio
+            label="Mapa de calor muscular"
+            value={tweaks.muscleStyle}
+            onChange={(v) => setTweak('muscleStyle', v)}
+            options={[
+              { label: 'Anatomía', value: 'anatomy' },
+              { label: 'Silueta', value: 'silhouette' }
+            ]}
+          />
+          <TweakRadio
+            label="Densidad"
+            value={tweaks.density}
+            onChange={(v) => setTweak('density', v)}
+            options={[
+              { label: 'Cómoda', value: 'comfortable' },
+              { label: 'Mixta', value: 'mixed' },
+              { label: 'Densa', value: 'dense' }
+            ]}
+          />
+        </TweakSection>
+        <TweakSection title="Marca">
+          <TweakRadio
+            label="Cyan UTEC"
+            value={tweaks.intensity}
+            onChange={(v) => setTweak('intensity', v)}
+            options={[
+              { label: 'Original', value: 'original' },
+              { label: 'Calibrado', value: 'calibrated' }
+            ]}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+};
+
+// Aplicar intensidad al cambiar
+const applyIntensity = (v) => {
+  if (v === 'original') {
+    document.documentElement.style.setProperty('--brand', '#00E5E5');
+  } else {
+    document.documentElement.style.setProperty('--brand', '#22D3EE');
+  }
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

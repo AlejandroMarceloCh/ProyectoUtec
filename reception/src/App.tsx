@@ -1,36 +1,20 @@
-import { useState } from "react";
-import { LoginScreen } from "./screens/LoginScreen";
-import { ReceptionScreen } from "./screens/ReceptionScreen";
-import { ScannerScreen } from "./screens/ScannerScreen";
-import { DisplayScreen } from "./screens/DisplayScreen";
-import { getToken } from "./api";
+import { useState } from 'react'
+import Login from './Login'
+import Scanner from './Scanner'
+import { setToken } from './api'
 
-type Route = "display" | "scanner" | "reception";
+export default function App() {
+  const [authed, setAuthed] = useState(false)
 
-function getRoute(): Route {
-  const path = window.location.pathname;
-  if (path.startsWith("/display")) return "display";
-  if (path.startsWith("/scanner")) return "scanner";
-  return "reception";
-}
-
-export function App() {
-  const route = getRoute();
-  const [loggedIn, setLoggedIn] = useState(() => !!getToken());
-
-  // /display es público — no necesita login
-  if (route === "display") {
-    return <DisplayScreen />;
+  function handleLogin(token: string) {
+    setToken(token)
+    setAuthed(true)
   }
 
-  // /scanner y / necesitan login como staff
-  if (!loggedIn || !getToken()) {
-    return <LoginScreen onSuccess={() => setLoggedIn(true)} />;
+  function handleLogout() {
+    setToken('')
+    setAuthed(false)
   }
 
-  if (route === "scanner") {
-    return <ScannerScreen onLogout={() => setLoggedIn(false)} />;
-  }
-
-  return <ReceptionScreen onLogout={() => setLoggedIn(false)} />;
+  return authed ? <Scanner onLogout={handleLogout} /> : <Login onLogin={handleLogin} />
 }

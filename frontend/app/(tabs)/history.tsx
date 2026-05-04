@@ -1,10 +1,8 @@
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { colors } from "@/constants/theme";
+import { Card } from "@/components/ds/Card";
+import { EmptyState } from "@/components/ds/EmptyState";
 import { useAuthStore } from "@/store/auth";
 
 type Session = {
@@ -24,9 +22,9 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 const METHOD_COLOR: Record<string, string> = {
-  manual: colors.success,
-  geofence_timeout: colors.primary,
-  auto_kill: colors.error,
+  manual: "#5EEAA0",
+  geofence_timeout: "#22D3EE",
+  auto_kill: "#FF6464",
 };
 
 function SessionCard({ session }: { session: Session }) {
@@ -36,37 +34,36 @@ function SessionCard({ session }: { session: Session }) {
     day: "numeric",
     month: "short",
   });
-  const hora = entrada.toLocaleTimeString("es-PE", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const hora = entrada.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" });
+
   const method = session.metodo_salida;
-  const isAutoKill = method === "auto_kill";
   const isActive = session.esta_activa;
+  const isAutoKill = method === "auto_kill";
+
+  const accentColor = isActive
+    ? "#5EEAA0"
+    : method
+    ? METHOD_COLOR[method]
+    : "#23262E";
+
+  const borderColor = isActive ? "#5EEAA050" : "#23262E";
+  const bgColor = isActive ? "#061512" : "#101115";
 
   return (
-    <View style={[s.sessionCard, isActive && s.sessionCardActive]}>
-      {/* Left accent bar */}
-      <View
-        style={[
-          s.accentBar,
-          {
-            backgroundColor: isActive
-              ? colors.success
-              : method
-              ? METHOD_COLOR[method]
-              : colors.border,
-          },
-        ]}
-      />
+    <View
+      style={{ backgroundColor: bgColor, borderColor }}
+      className="flex-row rounded-ds-lg border mb-2 overflow-hidden"
+    >
+      {/* Accent bar */}
+      <View style={{ width: 3, backgroundColor: accentColor }} />
 
-      <View style={s.sessionBody}>
-        <View style={s.sessionRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.sessionDate}>
+      <View className="flex-1 px-4 py-3.5">
+        <View className="flex-row justify-between items-start">
+          <View className="flex-1">
+            <Text className="font-ds-text-sb text-[14px] text-ds-fg-hi capitalize">
               {fecha} · {hora}
             </Text>
-            <Text style={s.sessionDuration}>
+            <Text className="font-ds-text text-[13px] text-ds-fg-mute mt-0.5">
               {isActive
                 ? "En curso..."
                 : session.duracion_minutos !== null
@@ -75,15 +72,23 @@ function SessionCard({ session }: { session: Session }) {
             </Text>
           </View>
 
-          <View style={{ alignItems: "flex-end", gap: 4 }}>
+          <View className="items-end gap-1">
             {isActive && (
-              <View style={[s.badge, { backgroundColor: colors.success + "20" }]}>
-                <Text style={[s.badgeText, { color: colors.success }]}>ACTIVA</Text>
+              <View className="px-2 py-0.5 rounded-md" style={{ backgroundColor: "#5EEAA020" }}>
+                <Text className="font-ds-text-sb text-[10px] text-ds-success tracking-widest">
+                  ACTIVA
+                </Text>
               </View>
             )}
             {method && !isActive && (
-              <View style={[s.badge, { backgroundColor: METHOD_COLOR[method] + "18" }]}>
-                <Text style={[s.badgeText, { color: METHOD_COLOR[method] }]}>
+              <View
+                className="px-2 py-0.5 rounded-md"
+                style={{ backgroundColor: METHOD_COLOR[method] + "18" }}
+              >
+                <Text
+                  className="font-ds-text-sb text-[10px] tracking-widest"
+                  style={{ color: METHOD_COLOR[method] }}
+                >
                   {METHOD_LABEL[method]}
                 </Text>
               </View>
@@ -92,17 +97,17 @@ function SessionCard({ session }: { session: Session }) {
         </View>
 
         {!isActive && session.puntos_otorgados !== null && (
-          <View style={s.pointsRow}>
+          <View
+            className="flex-row items-center gap-1.5 mt-2.5 pt-2.5 border-t border-ds-line-muted"
+          >
             <Text
-              style={[
-                s.points,
-                { color: isAutoKill ? colors.warning : colors.primary },
-              ]}
+              className="font-ds-display text-[15px]"
+              style={{ color: isAutoKill ? "#FFB454" : "#22D3EE" }}
             >
               +{session.puntos_otorgados} pts
             </Text>
             {isAutoKill && (
-              <Text style={s.penalty}>(penalización −20%)</Text>
+              <Text className="font-ds-text text-[11px] text-ds-fg-mute">(penalización −20%)</Text>
             )}
           </View>
         )}
@@ -111,18 +116,14 @@ function SessionCard({ session }: { session: Session }) {
   );
 }
 
-function LoadingSkeleton() {
+function SkeletonCard() {
   return (
-    <View style={{ gap: 10 }}>
-      {[1, 2, 3].map((i) => (
-        <View key={i} style={[s.sessionCard, { overflow: "hidden" }]}>
-          <View style={[s.accentBar, { backgroundColor: colors.border }]} />
-          <View style={[s.sessionBody, { gap: 8 }]}>
-            <Skeleton width="55%" height={14} />
-            <Skeleton width="28%" height={11} />
-          </View>
-        </View>
-      ))}
+    <View className="flex-row rounded-ds-lg border border-ds-line bg-ds-bg-surface mb-2 overflow-hidden" style={{ height: 72 }}>
+      <View style={{ width: 3, backgroundColor: "#23262E" }} />
+      <View className="flex-1 px-4 py-3.5 gap-2">
+        <View style={{ height: 14, width: "55%", backgroundColor: "#23262E", borderRadius: 4 }} />
+        <View style={{ height: 11, width: "28%", backgroundColor: "#23262E", borderRadius: 4 }} />
+      </View>
     </View>
   );
 }
@@ -141,19 +142,20 @@ export default function HistoryScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={s.scroll}
+      className="flex-1 bg-ds-bg-base"
+      contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 40 }}
     >
-      <Text style={s.pageTitle}>Mis sesiones</Text>
+      <Text className="font-ds-display text-[28px] text-ds-fg-hi tracking-[1px] mb-5">
+        Mis sesiones
+      </Text>
 
-      {isLoading && <LoadingSkeleton />}
+      {isLoading && Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
 
       {!isLoading && sessions.length === 0 && (
-        <Card>
+        <Card variant="surface">
           <EmptyState
-            illustration="no-sessions"
             title="Aún no tienes sesiones"
-            subtitle="Escanea tu QR en la entrada del gym"
+            description="Escanea tu QR en la entrada del gym"
           />
         </Card>
       )}
@@ -164,87 +166,3 @@ export default function HistoryScreen() {
     </ScrollView>
   );
 }
-
-const s = StyleSheet.create({
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 40,
-  },
-  pageTitle: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 28,
-    color: colors.text,
-    marginBottom: 20,
-    letterSpacing: 1,
-  },
-  sessionCard: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 8,
-    overflow: "hidden",
-  },
-  sessionCardActive: {
-    borderColor: colors.success + "50",
-    backgroundColor: "#0D1A14",
-  },
-  accentBar: {
-    width: 3,
-    alignSelf: "stretch",
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
-  },
-  sessionBody: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
-  sessionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  sessionDate: {
-    fontFamily: "Inter-SemiBold",
-    fontSize: 14,
-    color: colors.text,
-    textTransform: "capitalize",
-  },
-  sessionDuration: {
-    fontFamily: "SpaceGrotesk-Medium",
-    fontSize: 13,
-    color: colors.muted,
-    marginTop: 3,
-  },
-  badge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: {
-    fontFamily: "Inter-Bold",
-    fontSize: 10,
-    letterSpacing: 0.5,
-  },
-  pointsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  points: {
-    fontFamily: "SpaceGrotesk-Bold",
-    fontSize: 15,
-  },
-  penalty: {
-    fontFamily: "Inter-Regular",
-    fontSize: 11,
-    color: colors.muted,
-  },
-});

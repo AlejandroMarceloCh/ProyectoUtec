@@ -32,6 +32,15 @@ class User(Base):
     faculty_id = Column(Uuid(as_uuid=True), ForeignKey("faculties.id"), nullable=True)
     points = Column(Integer, default=0, nullable=False)
     push_token = Column(String(255), nullable=True)  # Expo push notification token
+    photo_url = Column(String(500), nullable=True)
+    # Preferencias declaradas por el alumno (onboarding/perfil)
+    preferred_days_per_week       = Column(Integer, nullable=True)   # 2-6
+    preferred_minutes_per_session = Column(Integer, nullable=True)   # 30-120
+    sexo                          = Column(String(10), nullable=True)  # M/F/Otro
+    # Streak (días consecutivos con sesión cerrada — feature único vs Smart Fit/Bodytech)
+    current_streak                = Column(Integer, default=0, nullable=False)
+    max_streak                    = Column(Integer, default=0, nullable=False)
+    last_streak_day               = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=now_lima, nullable=False)
@@ -39,7 +48,7 @@ class User(Base):
 
     faculty = relationship("Faculty", back_populates="users")
     training_sessions = relationship("TrainingSession", back_populates="user")
-    used_tokens = relationship("UsedToken", back_populates="user")
+    qr_codes = relationship("QRCode", back_populates="user")
 
     @validates("email")
     def validate_email(self, key: str, value: str) -> str:

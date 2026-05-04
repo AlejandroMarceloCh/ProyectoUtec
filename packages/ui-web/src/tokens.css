@@ -1,0 +1,28 @@
+/* UTEC GYM — CSS variables del DS para uso fuera de Tailwind (estilos inline en index.html, etc.) */
+:root {
+  --ds-bg-base:     #0A0B0D;
+  --ds-bg-surface:  #101115;
+  --ds-bg-raised:   #181A20;
+  --ds-bg-sunken:   #06070A;
+  --ds-line:        #23262E;
+  --ds-line-muted:  #1A1C22;
+
+  --ds-fg-hi:       #F4F5F7;
+  --ds-fg-base:     #D6D8DD;
+  --ds-fg-mute:     #9AA0AB;
+  --ds-fg-dim:      #6B7280;
+  --ds-fg-on-accent:#0A0B0D;
+
+  --ds-brand-cyan:      #22D3EE;
+  --ds-brand-cyan-dim:  #0E7490;
+  --ds-brand-cyan-glow: rgba(34,211,238,0.14);
+
+  --ds-action:       #D4FF3F;
+  --ds-action-hover: #C2F032;
+  --ds-action-press: #A6D026;
+
+  --ds-success: #5EEAA0;
+  --ds-warning: #FFB454;
+  --ds-danger:  #FF6464;
+  --ds-info:    #22D3EE;
+}

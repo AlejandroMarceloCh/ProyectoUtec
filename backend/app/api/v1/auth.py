@@ -42,6 +42,9 @@ def register(request: Request, body: RegisterRequest, db: Session = Depends(get_
         full_name=body.full_name,
         role=UserRole.student,
         faculty_id=faculty_id,
+        preferred_days_per_week=body.preferred_days_per_week,
+        preferred_minutes_per_session=body.preferred_minutes_per_session,
+        sexo=body.sexo,
     )
     db.add(user)
     db.commit()

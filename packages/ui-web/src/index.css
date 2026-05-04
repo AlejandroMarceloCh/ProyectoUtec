@@ -1,0 +1,13 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+  background: var(--ds-bg-base);
+  color: var(--ds-fg-base);
+  font-family: "Inter Tight", system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+}

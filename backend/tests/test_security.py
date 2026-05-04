@@ -1,8 +1,8 @@
 """
 Tests para app/core/security.py
-Cubre: hashing, JWT de sesión, QR tokens, anti-replay y expiración.
+Cubre: hashing, JWT de sesión y expiración. (QR tokens migraron a NanoID
+opaco persistido en `qr_codes` — sus tests viven en test_sessions.py.)
 """
-import time
 import uuid
 from datetime import timedelta
 from unittest.mock import patch
@@ -17,8 +17,6 @@ from app.core.security import (
     create_refresh_token,
     decode_access_token,
     decode_refresh_token,
-    create_qr_token,
-    decode_qr_token,
 )
 
 
@@ -90,41 +88,3 @@ class TestSessionTokens:
             decode_access_token(token)
 
 
-# ---------------------------------------------------------------------------
-# QR Tokens
-# ---------------------------------------------------------------------------
-
-class TestQRTokens:
-    def test_qr_token_contiene_sub_y_jti(self):
-        token = create_qr_token(USER_ID)
-        payload = decode_qr_token(token)
-        assert payload["sub"] == USER_ID
-        assert "jti" in payload
-        assert payload["type"] == "gym_qr"
-
-    def test_cada_qr_tiene_jti_unico(self):
-        t1 = create_qr_token(USER_ID)
-        t2 = create_qr_token(USER_ID)
-        p1 = decode_qr_token(t1)
-        p2 = decode_qr_token(t2)
-        assert p1["jti"] != p2["jti"]
-
-    def test_qr_firmado_con_clave_diferente_a_session(self):
-        """El QR usa QR_SECRET_KEY, no SECRET_KEY — no deben ser intercambiables."""
-        qr_token = create_qr_token(USER_ID)
-        with pytest.raises(JWTError):
-            decode_access_token(qr_token)
-
-    def test_qr_expirado_es_rechazado(self):
-        from app.core.config import now_lima
-        past = now_lima() - timedelta(minutes=2)
-        with patch("app.core.security.now_lima", return_value=past):
-            token = create_qr_token(USER_ID)
-        with pytest.raises(JWTError):
-            decode_qr_token(token)
-
-    def test_qr_token_manipulado_es_rechazado(self):
-        token = create_qr_token(USER_ID)
-        corrupted = token[:-4] + "ZZZZ"
-        with pytest.raises(JWTError):
-            decode_qr_token(corrupted)

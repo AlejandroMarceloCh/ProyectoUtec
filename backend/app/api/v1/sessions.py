@@ -1,3 +1,4 @@
+import logging
 import math
 import uuid
 from datetime import timedelta
@@ -6,19 +7,20 @@ from zoneinfo import ZoneInfo
 from app.core.config import LIMA_TZ
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from jose import JWTError
+from sqlalchemy import update
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.api.v1.deps import get_current_user, require_role
 from app.core.config import now_lima, settings
 from app.core.rate_limit import limiter
-from app.core.security import decode_qr_token
 from app.core.scheduler import _calcular_puntos_base
 from app.db.session import get_db
 from app.models.faculty import Faculty
 from app.models.gym_config import GymConfig
+from app.models.qr_code import QRCode
 from app.models.training_session import ExitMethod, TrainingSession
-from app.models.used_token import UsedToken
 from app.models.user import User, UserRole
 from app.schemas.session import (
     ActiveSessionResponse,
@@ -91,6 +93,29 @@ def _close_session(
             if faculty:
                 faculty.total_points += session.puntos_otorgados
 
+        # Streak: actualiza si la sesión es de un día nuevo
+        # Si el último día de streak fue ayer → +1; si fue hoy → no cambia; si fue hace >1 día → reset a 1
+        today = hora_salida.date()
+        last = user.last_streak_day.date() if user.last_streak_day else None
+        if last is None:
+            user.current_streak = 1
+        elif last == today:
+            pass  # mismo día, no contar 2 veces
+        elif (today - last).days == 1:
+            user.current_streak += 1
+        else:
+            user.current_streak = 1
+        user.last_streak_day = hora_salida
+        if user.current_streak > user.max_streak:
+            user.max_streak = user.current_streak
+
+        # Invalida cache de métricas — el próximo GET /routines/recommended
+        # las recalculará reflejando esta nueva sesión
+        from app.models.user_metrics import UserMetrics
+        m = db.query(UserMetrics).filter(UserMetrics.user_id == user.id).first()
+        if m:
+            m.last_computed_at = None  # fuerza cold path en próximo GET
+
 
 # ---------------------------------------------------------------------------
 # POST /sessions/checkin
@@ -106,6 +131,7 @@ def _build_user_profile(user: User, db: Session) -> UserProfile:
         faculty_name=faculty.name if faculty else None,
         faculty_code=faculty.code if faculty else None,
         points=user.points,
+        photo_url=user.photo_url,
     )
 
 
@@ -119,23 +145,25 @@ def checkin(
         require_role(UserRole.admin_staff, UserRole.trainer, UserRole.utec_staff)
     ),
 ):
-    try:
-        payload = decode_qr_token(body.qr_token)
-    except JWTError as exc:
+    # Validación atómica: marca el QR como usado y devuelve user_id en una sola query.
+    # Si el código no existe, ya fue usado, o expiró → no devuelve filas → 400.
+    stmt = (
+        update(QRCode)
+        .where(
+            QRCode.code == body.code,
+            QRCode.used_at.is_(None),
+            QRCode.expires_at > now_lima(),
+        )
+        .values(used_at=now_lima())
+        .returning(QRCode.user_id)
+    )
+    result = db.execute(stmt).first()
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"QR inválido o expirado: {exc}",
+            detail="QR inválido, expirado o ya utilizado. Genera uno nuevo.",
         )
-
-    user_id = uuid.UUID(payload["sub"])
-    jti = payload["jti"]
-
-    already_used = db.query(UsedToken).filter(UsedToken.jti == jti).first()
-    if already_used:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Este QR ya fue utilizado. Genera uno nuevo.",
-        )
+    user_id = result[0]
 
     user = db.query(User).filter(
         User.id == user_id,
@@ -143,6 +171,7 @@ def checkin(
         User.deleted_at.is_(None),
     ).first()
     if not user:
+        db.rollback()  # revertir el marcado del QR si el user no es válido
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
     active = _get_active_session(user.id, db)
@@ -167,13 +196,17 @@ def checkin(
                     f"radio permitido {gym.geofence_radius_m}m)."
                 ),
             )
+    db.query(GymConfig).filter(GymConfig.id == gym.id).with_for_update().first()
     ocupacion_actual = db.query(TrainingSession).filter(
         TrainingSession.gym_id == gym.id,
         TrainingSession.hora_salida.is_(None),
     ).count()
 
-    expires_at = now_lima() + timedelta(seconds=30)
-    db.add(UsedToken(jti=jti, user_id=user.id, expires_at=expires_at))
+    if ocupacion_actual >= gym.capacity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Aforo lleno ({ocupacion_actual}/{gym.capacity}). Espera a que alguien salga.",
+        )
 
     session = TrainingSession(user_id=user.id, gym_id=gym.id)
     db.add(session)
@@ -181,6 +214,10 @@ def checkin(
     db.refresh(session)
 
     new_occ = ocupacion_actual + 1
+    logger.info(
+        "checkin OK scanner=%s user=%s code=%s ocupacion=%d/%d",
+        _scanner.email, user.email, body.code, new_occ, gym.capacity,
+    )
     return CheckinResponse(
         status="ok",
         usuario=_build_user_profile(user, db),
@@ -327,8 +364,13 @@ def get_my_history(
 
 
 @router.get("/recent")
-def get_recent_checkins(limit: int = 5, db: Session = Depends(get_db)):
-    """Últimos check-ins — público, sin auth. Lo pollea la pantalla /display."""
+def get_recent_checkins(
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    _staff: User = Depends(
+        require_role(UserRole.admin_staff, UserRole.trainer, UserRole.utec_staff)
+    ),
+):
     limit = max(1, min(limit, 20))
     gym = _get_active_gym(db)
 
@@ -389,3 +431,69 @@ def get_occupancy(db: Session = Depends(get_db)):
         porcentaje=porcentaje,
         alerta_aforo=porcentaje >= 80.0,
     )
+
+
+@router.get("/occupancy/by-faculty")
+def get_occupancy_by_faculty(db: Session = Depends(get_db)):
+    """Aforo desglosado por facultad — community/FOMO. Endpoint público.
+    Devuelve: [{faculty_code, faculty_name, count}] ordenado por count desc."""
+    from sqlalchemy import func
+    gym = _get_active_gym(db)
+    rows = (
+        db.query(
+            Faculty.code,
+            Faculty.name,
+            func.count(TrainingSession.id).label("count"),
+        )
+        .join(User, User.faculty_id == Faculty.id)
+        .join(TrainingSession, TrainingSession.user_id == User.id)
+        .filter(
+            TrainingSession.gym_id == gym.id,
+            TrainingSession.hora_salida.is_(None),
+        )
+        .group_by(Faculty.code, Faculty.name)
+        .order_by(func.count(TrainingSession.id).desc())
+        .all()
+    )
+    return {
+        "gym_id": str(gym.id),
+        "by_faculty": [
+            {"faculty_code": code, "faculty_name": name, "count": count}
+            for code, name, count in rows
+        ],
+    }
+
+
+@router.get("/{session_id}")
+def get_session_detail(
+    session_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Detalle de una sesión. Solo el propio alumno o staff puede verla."""
+    try:
+        sid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="session_id inválido")
+
+    session = db.query(TrainingSession).filter(TrainingSession.id == sid).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Sesión no encontrada")
+
+    is_staff = current_user.role in (UserRole.admin_staff, UserRole.trainer, UserRole.utec_staff)
+    if not is_staff and session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Sin acceso a esta sesión")
+
+    return {
+        "session": {
+            "id": str(session.id),
+            "hora_entrada": session.hora_entrada,
+            "hora_salida": session.hora_salida,
+            "duracion_minutos": session.duracion_minutos,
+            "puntos_otorgados": session.puntos_otorgados,
+            "metodo_salida": session.metodo_salida,
+            "esta_activa": session.esta_activa,
+            "ejercicios": [],
+            "resumen_muscular": {},
+        }
+    }

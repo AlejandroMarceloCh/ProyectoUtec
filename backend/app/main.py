@@ -24,7 +24,7 @@ from app.core.scheduler import start_scheduler, stop_scheduler
 # Registrar todos los modelos antes de create_all()
 import app.models  # noqa: F401
 
-from app.api.v1 import auth, qr, sessions, analytics, users
+from app.api.v1 import auth, qr, sessions, analytics, users, routines
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -138,6 +138,7 @@ app.include_router(qr.router, prefix="/api/v1")
 app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
+app.include_router(routines.router, prefix="/api/v1")
 
 
 @app.get("/health", tags=["health"])

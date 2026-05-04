@@ -11,6 +11,17 @@ export interface AuthUser {
   role: UserRole;
   faculty_id: string | null;
   points: number;
+  preferred_days_per_week?: number | null;
+  preferred_minutes_per_session?: number | null;
+  sexo?: string | null;
+  current_streak?: number;
+  max_streak?: number;
+}
+
+export interface RegisterPrefs {
+  preferred_days_per_week?: number;
+  preferred_minutes_per_session?: number;
+  sexo?: string;
 }
 
 interface AuthState {
@@ -19,7 +30,8 @@ interface AuthState {
   isLoading: boolean;
 
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string, facultyId?: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string, facultyId?: string, prefs?: RegisterPrefs) => Promise<void>;
+  setUser: (u: AuthUser) => void;
   logout: () => Promise<void>;
   loadFromStorage: () => Promise<void>;
 }
@@ -41,12 +53,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: me.data });
   },
 
-  register: async (email, password, fullName, facultyId) => {
+  setUser: (u) => set({ user: u }),
+
+  register: async (email, password, fullName, facultyId, prefs) => {
     const { data } = await api.post("/auth/register", {
       email,
       password,
       full_name: fullName,
       ...(facultyId ? { faculty_id: facultyId } : {}),
+      ...(prefs ?? {}),
     });
     await setItem("access_token", data.access_token);
     await setItem("refresh_token", data.refresh_token);
@@ -68,6 +83,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ accessToken: token });
       const me = await api.get("/users/me");
       set({ user: me.data, isLoading: false });
+      api.get("/qr/generate").catch(() => {});
+      api.get("/sessions/me/active").catch(() => {});
     } catch {
       await deleteItem("access_token");
       set({ user: null, accessToken: null, isLoading: false });

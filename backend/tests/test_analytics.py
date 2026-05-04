@@ -8,7 +8,6 @@ from unittest.mock import patch
 import pytest
 
 from app.core.config import now_lima
-from app.core.security import create_qr_token
 from app.models.faculty import Faculty
 from app.models.training_session import TrainingSession, ExitMethod
 from app.models.user import User, UserRole

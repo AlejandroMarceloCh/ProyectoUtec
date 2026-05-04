@@ -1,11 +1,13 @@
 import { Tabs } from "expo-router";
 import { Platform, View, StyleSheet } from "react-native";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
-import { colors } from "@/constants/theme";
-import { GlowView } from "@/components/ui/GlowView";
+
+const CYAN   = "#22D3EE"
+const MUTED  = "#9AA0AB"
+const CYAN_GLOW = "rgba(34,211,238,0.14)"
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  const c = focused ? colors.primary : colors.muted;
+  const c = focused ? CYAN : MUTED;
   const sw = 1.8;
 
   const icon = (() => {
@@ -51,22 +53,24 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
             <Path d="M5 20c0-4 3-6 7-6s7 2 7 6" stroke={c} strokeWidth={sw} strokeLinecap="round" />
           </Svg>
         );
+      case "routine":
+        return (
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+            <Path d="M12 3v18M5 8l3-3m8 0l3 3M5 16l3 3m8 0l3-3" stroke={c} strokeWidth={sw} strokeLinecap="round" />
+            <Circle cx={12} cy={12} r={3} stroke={c} strokeWidth={sw} />
+          </Svg>
+        );
       default:
         return null;
     }
   })();
 
-  if (focused) {
-    return (
-      <GlowView color={colors.primary} radius={28} intensity={0.28} breathe style={s.iconWrap}>
-        {/* Energy line above icon */}
-        <View style={s.energyLine} />
-        {icon}
-      </GlowView>
-    );
-  }
-
-  return <View style={s.iconWrap}>{icon}</View>;
+  return (
+    <View style={[s.iconWrap, focused && s.iconWrapFocused]}>
+      {focused && <View style={s.energyLine} />}
+      {icon}
+    </View>
+  );
 }
 
 export default function TabsLayout() {
@@ -75,16 +79,16 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: "#101115",
+          borderTopColor: "#23262E",
           borderTopWidth: StyleSheet.hairlineWidth,
           height: Platform.OS === "ios" ? 88 : 64,
           paddingBottom: Platform.OS === "ios" ? 24 : 8,
         },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarActiveTintColor: CYAN,
+        tabBarInactiveTintColor: MUTED,
         tabBarLabelStyle: {
-          fontFamily: "Inter-Medium",
+          fontFamily: "InterTight-Medium",
           fontSize: 10,
           marginTop: 2,
         },
@@ -102,6 +106,13 @@ export default function TabsLayout() {
         options={{
           title: "En Vivo",
           tabBarIcon: ({ focused }) => <TabIcon name="live" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="routine"
+        options={{
+          title: "Rutina",
+          tabBarIcon: ({ focused }) => <TabIcon name="routine" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -134,12 +145,17 @@ const s = StyleSheet.create({
     alignItems: "center",
     paddingTop: 4,
   },
+  iconWrapFocused: {
+    backgroundColor: CYAN_GLOW,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+  },
   energyLine: {
     position: "absolute",
     top: -8,
     width: 20,
     height: 2,
     borderRadius: 1,
-    backgroundColor: colors.primary,
+    backgroundColor: CYAN,
   },
 });

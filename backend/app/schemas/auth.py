@@ -10,6 +10,10 @@ class RegisterRequest(BaseModel):
     password: str
     full_name: str
     faculty_id: Optional[str] = None
+    # Preferencias del alumno (opcionales — completables después en perfil)
+    preferred_days_per_week: Optional[int] = None
+    preferred_minutes_per_session: Optional[int] = None
+    sexo: Optional[str] = None
 
     @field_validator("email")
     @classmethod
